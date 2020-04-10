@@ -1,0 +1,247 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+
+use Carp qw(croak carp);
+use English qw( -no_match_vars );
+use Getopt::Long;
+use JSON::XS;
+use Pod::Usage;
+use Try::Tiny;
+
+use Crypt::OpenSSL::Keys qw( :all );
+
+sub print_usage {
+    pod2usage( -exitval => 255, -verbose => 0 );
+    return;
+}
+
+sub print_help {
+    pod2usage(
+        -exitval  => 0,
+        -verbose  => 99,
+        -sections => 'SYNOPSIS|OPTIONS|PARAMETERS',
+    );
+    return;
+}
+
+sub print_man {
+    pod2usage( -exitval => 0, -verbose => 2 );
+    return;
+}
+
+sub read_key_file {
+    my $file = shift;
+
+    my $fh;
+    my $key = do {
+        local $INPUT_RECORD_SEPARATOR = undef;
+        open $fh, '<', $file or croak("$!: $file");
+        <$fh>;
+
+    };
+    close $fh or carp("$!: $file");
+
+    $key =~ s/^\s+|\s+$//g;
+
+    return $key;
+}
+
+sub print_error_exit {
+    my $msg = shift;
+
+    printf {*STDERR} "%s", $msg;
+
+    exit 1;
+}
+
+sub print_json {
+    my $info = shift;
+
+    printf "%s\n", encode_json($info);
+
+    return;
+}
+
+sub print_info {
+    my $info = shift;
+
+    foreach my $key ( sort keys %{$info} ) {
+        my $value = $info->{$key};
+        if ($value =~ /(0|1)/) {
+            $value = !$1 ? "False" : "True";
+        }
+        $key = sprintf "%s:", ucfirst $key;
+        printf "%-11s%s\n", $key, $value;
+    }
+
+    return;
+}
+
+sub validate_input {
+    my ( $key, $passphrase ) = @_;
+
+    print_error_exit("No valid key provided.\n") if ( !key_is_valid($key) );
+    print_error_exit("Missing passphrase. Key is encrypted.\n")
+      if ( key_is_encrypted($key) && !$passphrase );
+
+    return;
+}
+
+sub gather_info {
+    my ( $key, $passphrase ) = @_;
+
+    my $info;
+
+    $info->{'format'}    = key_is_der($key)       ? "DER"     : "PEM";
+    $info->{'type'}      = key_is_private($key)   ? "Private" : "Public";
+    $info->{'encrypted'} = key_is_encrypted($key);
+
+    my $rc = 0;
+    $rc = try {
+        $info->{'pkcs8'} = key_is_pkcs8( $key, $passphrase );
+        1;
+    };
+    print_error_exit("Bad passphrase provided.\n") if ( !$rc );
+
+    $rc = 0;
+    $rc = try {
+        if    ( key_is_rsa( $key, $passphrase ) ) { $info->{'algorithm'} = 'RSA' }
+        elsif ( key_is_ec( $key, $passphrase ) )  { $info->{'algorithm'} = 'EC' }
+        elsif ( key_is_dsa( $key, $passphrase ) ) { $info->{'algorithm'} = 'DSA'; }
+        1;
+    };
+    print_error_exit("Bad passphrase provided.\n") if ( !$rc );
+    print_error_exit("Unknown key algorithm.\n")   if ( !$info->{'algorithm'} );
+
+    return $info;
+}
+
+sub get_key_info {
+    my ( $key, $passphrase, $json ) = @_;
+
+    validate_input( $key, $passphrase );
+
+    my $info = gather_info( $key, $passphrase );
+
+    if   ($json) { print_json($info); }
+    else         { print_info($info); }
+
+    return;
+}
+
+sub run {
+    my $opts;
+
+    GetOptions(
+        "passphrase|p=s" => \$opts->{'passphrase'},
+        "json|j"         => \$opts->{'json'},
+        "help|h"         => \$opts->{'help'},
+        "man|m"          => \$opts->{'man'},
+    ) or print_usage();
+
+    my $count = 0;
+    foreach ( values %{$opts} ) {
+        $count += 1 if ($_);
+    }
+
+    print_usage() if ( ( $opts->{'help'} || $opts->{'man'} ) && $count > 1 );
+    print_man()   if ( $opts->{'man'} );
+    print_help()  if ( $opts->{'help'} );
+
+    $opts->{'key_file'} = $ARGV[0];
+
+    print_usage() if ( !$opts->{'key_file'} );
+
+    my $key = read_key_file( $opts->{'key_file'} );
+    get_key_info( $key, $opts->{'passphrase'}, $opts->{'json'} );
+
+    return 0;
+}
+
+exit run();
+
+__END__
+
+=encoding utf8
+
+=head1 NAME
+
+crypt-key-info - OpenSSL cryptographic key info tool.
+
+=head1 SYNOPSIS
+
+crypt-key-info [--passphrase SECRET] [--json] KEY_FILE
+
+crypt-key-info --help | --man
+
+=head1 OPTIONS
+
+=over 8
+
+=item B<--passphrase|-d> SECRET
+
+Key encryption passphrase.
+
+=back
+
+=over 8
+
+=item B<--json>
+
+Print info in JSON format.
+
+=back
+
+=head1 PARAMETERS
+
+=over 8
+
+=item B<KEY_FILE>
+
+Path to key file.
+
+=back
+
+=head1 DESCRIPTION
+
+crypt-key-info is an OpenSSL based tool to determine information about a
+cryptographical key.
+
+=over 8
+
+=item B<format>
+
+DER | PEM
+
+=item B<algorithm>
+
+RSA | DSA | EC
+
+=item B<type>
+
+Public | Private
+
+=item B<encrypted>
+
+True | False
+
+=item B<PKCS#8>
+
+True | False
+
+=back
+
+=head1 AUTHORS
+
+Tobias Schäfer L<github@blackox.org>
+
+=head1 COPYRIGHT AND LICENSE
+
+This software is copyright (c) 2020 by Tobias Schäfer.
+
+This is free software; you can redistribute it and/or modify it under the same
+terms as the Perl 5 programming language system itself.
+
+=cut

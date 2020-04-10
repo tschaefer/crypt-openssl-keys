@@ -2,6 +2,7 @@ MANIFEST
 Makefile.PL
 README
 README.md
+bin/crypt-key-info
 lib/Crypt/OpenSSL/Keys.pm
 lib/Crypt/OpenSSL/Keys.xs
 t/00_base.t

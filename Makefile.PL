@@ -4,6 +4,7 @@ WriteMakefile(
     'ABSTRACT'   => 'OpenSSL key tools.',
     'AUTHOR'     => 'Tobias Schaefer <github@blackox.org>',
     'DISTNAME'   => 'Crypt-OpenSSL-Keys',
+    'EXE_FILES'  => [ 'bin/crypt-key-info' ],
     'META_MERGE' => {
         resources => {
             'license'    => 'http://dev.perl.org/licenses',
