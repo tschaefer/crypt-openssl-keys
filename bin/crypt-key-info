@@ -94,7 +94,7 @@ sub validate_input {
 
     print_error_exit("No valid key provided.\n") if ( !key_is_valid($key) );
     print_error_exit("Missing passphrase. Key is encrypted.\n")
-      if ( key_is_encrypted($key) && !$passphrase );
+      if ( key_is_der($key) && key_is_encrypted($key) && !$passphrase );
 
     return;
 }
