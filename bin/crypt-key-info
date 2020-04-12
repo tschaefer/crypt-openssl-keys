@@ -31,8 +31,18 @@ sub print_man {
     return;
 }
 
+sub read_from_stdin {
+    my $key;
+
+    while (! eof *STDIN) { $key .= readline *STDIN; }
+
+    return $key;
+}
+
 sub read_key_file {
     my $file = shift;
+
+    return read_from_stdin() if ($file =~ /stdin/i ) ;
 
     my $fh;
     my $key = do {
@@ -151,7 +161,6 @@ sub run {
     print_help()  if ( $opts->{'help'} );
 
     $opts->{'key_file'} = $ARGV[0];
-
     print_usage() if ( !$opts->{'key_file'} );
 
     my $key = read_key_file( $opts->{'key_file'} );
@@ -200,7 +209,7 @@ Print info in JSON format.
 
 =item B<KEY_FILE>
 
-Path to key file.
+Path to key file. B<stdin>, read the key from standard input.
 
 =back
 
