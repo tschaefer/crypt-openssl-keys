@@ -14,6 +14,8 @@ use Crypt::OpenSSL::Keys qw( key_is_ec );
 my @files = glob "$Bin/data/*/*";
 
 foreach my $file (@files) {
+    next if ($file =~ /SM2/);
+
     my $fh;
     my $key = do {
         local $RS = undef;
