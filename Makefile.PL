@@ -18,6 +18,8 @@ WriteMakefile(
         'Try::Tiny' => '>=0.30',
         'Test::More' => '>=1.302171',
     },
+    # https://docs.openssl.org/3.0/man7/migration_guide/#upgrading-from-openssl-111
+    'CCFLAGS'      => "$Config::Config{ccflags} -Wno-deprecated-declarations",
     'DEFINE'       => '-DPERL5 -DOPENSSL_NO_KRB5',
     'LIBS'         => ['-lssl -lcrypto'],
     'XSMULTI'      => 1,
